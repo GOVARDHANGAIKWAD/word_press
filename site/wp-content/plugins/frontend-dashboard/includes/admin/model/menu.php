@@ -1,0 +1,87 @@
+<?php
+/**
+ * Menu.
+ *
+ * @package Frontend Dashboard.
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+/**
+ * Fetch Menu with Key and Value Pair
+ *
+ * @return array
+ */
+function fed_fetch_menu() {
+	$results = fed_fetch_rows_by_table( BC_FED_TABLE_MENU );
+
+	if ( count( $results ) <= 0 ) {
+		new WP_Error(
+			'fed_default_value_not_installed',
+			__(
+				'There is some trouble in installing the default value, please try to deactivate and activate the plugin or contact us on ',
+				'frontend-dashboard'
+			) . make_clickable( 'https://buffercode.com/' )
+		);
+	}
+
+	return $results;
+}
+
+/**
+ * Fetch Table Rows with Key for Front End.
+ *
+ * @param  string $table  Table Name.
+ * @param  String $key  Row Key.
+ *
+ * @return array|WP_Error
+ */
+function fed_fetch_table_rows_with_key_front_end( $table, $key ) {
+	$results     = apply_filters( 'fed_add_custom_menu', fed_fetch_rows_by_table( $table ) );
+	$user_role   = fed_get_current_user_role_key();
+	$get_payload = \FED\Helpers\InputHelper::get();
+
+	if ( count( $results ) <= 0 && BC_FED_TABLE_POST !== $table ) {
+		return new WP_Error(
+			'fed_default_value_not_installed',
+			__(
+				'There is some trouble in installing the default value, please try to deactivate and activate the plugin or contact us on ',
+				'frontend-dashboard'
+			) . make_clickable( 'https://buffercode.com/' )
+		);
+	}
+	$result_with_key = array();
+	foreach ( $results as $result ) {
+		$res = isset( $result['user_role'] ) && ! empty( $result['user_role'] ) ? $result['user_role'] : false;
+
+		// If specific user_role restrictions exist, check role permissions
+		if ( $res ) {
+			$allowed_roles = maybe_unserialize( $res );
+			if ( is_array( $allowed_roles ) && ! empty( $allowed_roles ) ) {
+				if ( ! in_array( $user_role, $allowed_roles, true ) &&
+					! isset( $get_payload, $get_payload['fed_dashboard_menu'], $get_payload['sort'] ) &&
+					! fed_is_admin()
+				) {
+					continue;
+				}
+			}
+		}
+
+		// If menu is disabled or inactive, hide it on the frontend.
+		if ( ! fed_is_admin() ) {
+			if ( isset( $result['show_user_profile'] ) && 'Disable' === $result['show_user_profile'] ) {
+				continue;
+			}
+			if ( isset( $result['status'] ) && 'inactive' === $result['status'] ) {
+				continue;
+			}
+		}
+
+		$result['menu_type']          = isset( $result['menu_type'] ) ? $result['menu_type'] : 'user';
+		$item_key                     = isset( $result[ $key ] ) ? $result[ $key ] : ( isset( $result['menu_slug'] ) ? $result['menu_slug'] : uniqid( 'fed_m_' ) );
+		$result_with_key[ $item_key ] = $result;
+	}
+
+	return $result_with_key;
+}

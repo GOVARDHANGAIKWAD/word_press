@@ -1,0 +1,329 @@
+<?php
+/**
+ * User Profile
+ *
+ * @package Frontend Dashboard.
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+/**
+ * Get all content have registration enables
+ *
+ * @return array|null|WP_Error
+ */
+function fed_fetch_user_profile_by_registration() {
+	global $wpdb;
+	$table_name = $wpdb->prefix . BC_FED_TABLE_USER_PROFILE;
+
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$result = $wpdb->get_results( "SELECT * FROM $table_name WHERE show_register LIKE 'Enable'", ARRAY_A );
+	if ( count( $result ) <= 0 ) {
+		return new WP_Error( 'fed_no_row_found_on_that_id', 'All fields are disabled to show on Registration form ' );
+	}
+	if ( null === $result ) {
+		return new WP_Error( 'fed_invalid_query_string_r_output', 'Invalid query string out output' );
+	}
+
+	return $result;
+}
+
+/**
+ * Fetch Required Fields by Menu Name
+ *
+ * @param  string $menu  Menu Name.
+ *
+ * @return array | WP_Error
+ */
+function fed_fetch_user_profile_required_by_menu( $menu = 'profile' ) {
+	global $wpdb;
+	$table_name = $wpdb->prefix . BC_FED_TABLE_USER_PROFILE;
+
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$result = $wpdb->get_results(
+		$wpdb->prepare(
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			"SELECT * FROM {$table_name} WHERE (menu = %s AND is_required = %s)",
+			sanitize_text_field( $menu ),
+			'true'
+		),
+		ARRAY_A
+	);
+	if ( count( $result ) <= 0 ) {
+		return array();
+	}
+	if ( null == $result ) {
+		return new WP_Error( 'fed_invalid_query_string_r_output_required', 'Invalid query string out output' );
+	}
+
+	return $result;
+}
+
+/**
+ * Fetch Extra fields
+ */
+function fed_fetch_user_profile_extra_fields() {
+	global $wpdb;
+	$table_name = $wpdb->prefix . BC_FED_TABLE_USER_PROFILE;
+
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$result = $wpdb->get_results( "SELECT * FROM $table_name WHERE extra LIKE 'yes'", ARRAY_A );
+
+	if ( ( null === $result ) || ( count( $result ) <= 0 ) ) {
+		return false;
+	}
+
+	return $result;
+}
+
+/**
+ * Filter extra fields by key value pair.
+ */
+function fed_fetch_user_profile_extra_fields_key_value() {
+	$value = fed_fetch_user_profile_extra_fields();
+	if ( ! $value ) {
+		return array();
+	}
+	$new_value = array();
+	foreach ( $value as $index => $key ) {
+		$new_value[ $key['input_meta'] ] = $key['label_name'];
+	}
+
+	return $new_value;
+}
+
+/**
+ * Fetch Not Extra fields
+ */
+function fed_fetch_user_profile_not_extra_fields() {
+	global $wpdb;
+	$table_name = $wpdb->prefix . BC_FED_TABLE_USER_PROFILE;
+
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$result = $wpdb->get_results( "SELECT * FROM $table_name WHERE extra LIKE 'no'", ARRAY_A );
+	if ( null === $result || count( $result ) <= 0 ) {
+		return false;
+	}
+
+	return $result;
+}
+
+/**
+ * Filter not extra fields by key value pair.
+ */
+function fed_fetch_user_profile_not_extra_fields_key_value() {
+	$value = fed_fetch_user_profile_not_extra_fields();
+
+	if ( ! $value ) {
+		return false;
+	}
+	$new_value = array();
+	foreach ( $value as $index => $key ) {
+		$new_value[ $key['input_meta'] ] = $key['label_name'];
+	}
+
+	return $new_value;
+}
+
+/**
+ * Fetch User profile by Dashboard enabled
+ */
+function fed_fetch_user_profile_by_dashboard() {
+	global $wpdb;
+	$table_name = $wpdb->prefix . BC_FED_TABLE_USER_PROFILE;
+
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	$results = $wpdb->get_results( "SELECT * FROM $table_name WHERE show_dashboard LIKE 'Enable'", ARRAY_A );
+
+	if ( count( $results ) <= 0 ) {
+		return false;
+	}
+
+	return $results;
+}
+
+/**
+ * Fetch User Profile By Menu Slug.
+ *
+ * @param  string $menu_slug  Menu Slug.
+ *
+ * @return array|bool|null|object
+ */
+function fed_fetch_user_profile_by_menu_slug( $menu_slug = '' ) {
+	global $wpdb;
+	$table_name = $wpdb->prefix . BC_FED_TABLE_USER_PROFILE;
+
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$results = $wpdb->get_results(
+		$wpdb->prepare(
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			"SELECT * FROM {$table_name} WHERE show_dashboard = %s AND menu = %s",
+			'Enable',
+			sanitize_text_field( $menu_slug )
+		),
+		ARRAY_A
+	);
+
+	if ( count( $results ) <= 0 ) {
+		return false;
+	}
+
+	return $results;
+}
+
+/**
+ * Array Group By Key.
+ *
+ * @param  array  $arr  Array Value.
+ * @param  string $key  Key.
+ *
+ * @return array|bool
+ */
+function fed_array_group_by_key( $arr, $key ) {
+	if ( ! is_array( $arr ) ) {
+		return false;
+	}
+	if ( ! is_string( $key ) && ! is_int( $key ) && ! is_float( $key ) ) {
+		return false;
+	}
+
+	$grouped = array();
+	foreach ( $arr as $value ) {
+		$grouped[ $value[ $key ] ][] = $value;
+	}
+
+	if ( func_num_args() > 2 ) {
+		$args = func_get_args();
+		foreach ( $grouped as $index => $value ) {
+			$parms             = array_merge( array( $value ), array_slice( $args, 2, func_num_args() ) );
+			$grouped[ $index ] = call_user_func_array( 'array_group_by', $parms );
+		}
+	}
+
+	return $grouped;
+}
+
+/**
+ * Is enable role in Registration.
+ *
+ * @param  string $fed_admin_login  Admin Login.
+ *
+ * @return array|false
+ */
+function fed_is_role_in_registration( $fed_admin_login = '' ) {
+	if ( '' === $fed_admin_login ) {
+		$fed_admin_login = get_option( 'fed_admin_login' );
+	}
+	if ( isset( $fed_admin_login['register']['role'] ) && count( $fed_admin_login['register']['role'] ) > 0 ) {
+		$user_role = fed_get_user_roles();
+		$intersect = array_intersect_key( $user_role, $fed_admin_login['register']['role'] );
+		$filtered  = array();
+		foreach ( $intersect as $slug => $label ) {
+			if ( ! fed_is_elevated_role( $slug ) ) {
+				$filtered[ $slug ] = $label;
+			}
+		}
+
+		return ! empty( $filtered ) ? $filtered : false;
+	}
+
+	return false;
+}
+
+/**
+ * Role with Pricing.
+ *
+ * @param  string $fed_admin_login  .
+ *
+ * @return array
+ */
+function fed_role_with_pricing( $fed_admin_login = '' ) {
+	if ( '' === $fed_admin_login ) {
+		$fed_admin_login = get_option( 'fed_admin_login' );
+	}
+	$role_pricing = fed_is_role_in_registration( $fed_admin_login );
+	$new_array    = array();
+	if ( $fed_admin_login && is_array( $role_pricing ) ) {
+		$fed_payment_options = get_option( 'fed_admin_settings_payments' );
+		if ( ! is_array( $fed_payment_options ) ) {
+			$fed_payment_options = array();
+		}
+		foreach ( $role_pricing as $index => $role ) {
+			$new_array['role'][ $index ] = array(
+				'name'   => $role,
+				'price'  => isset( $fed_payment_options['role_pricing']['payment_details'][ $index ]['role_pricing'] ) ? $fed_payment_options['role_pricing']['payment_details'][ $index ]['role_pricing'] : null,
+				'cycle'  => isset( $fed_payment_options['role_pricing']['payment_details'][ $index ]['payment_cycle'] ) ? $fed_payment_options['role_pricing']['payment_details'][ $index ]['payment_cycle'] : null,
+				'custom' => isset( $fed_payment_options['role_pricing']['payment_details'][ $index ]['custom_payment_cycle'] ) ? $fed_payment_options['role_pricing']['payment_details'][ $index ]['custom_payment_cycle'] : null,
+			);
+		}
+		$new_array['settings'] = isset( $fed_payment_options['settings'] ) && is_array( $fed_payment_options['settings'] ) ? $fed_payment_options['settings'] : array();
+
+		return $new_array;
+	}
+
+	return $new_array;
+}
+
+/**
+ * Role with Pricing Flat.
+ *
+ * @param  string $fed_admin_login  Admin Login.
+ *
+ * @return array
+ */
+function fed_role_with_pricing_flat( $fed_admin_login = '' ) {
+	if ( '' === $fed_admin_login ) {
+		$fed_admin_login = get_option( 'fed_admin_login' );
+	}
+	$role_pricing = fed_is_role_in_registration( $fed_admin_login );
+
+	$new_array = array();
+	if ( $fed_admin_login && is_array( $role_pricing ) ) {
+		$fed_payment_options = get_option( 'fed_admin_settings_payments' );
+		if ( ! is_array( $fed_payment_options ) ) {
+			$fed_payment_options = array();
+		}
+		foreach ( $role_pricing as $index => $role ) {
+			$price    = isset( $fed_payment_options['role_pricing']['payment_details'][ $index ]['role_pricing'] ) ? $fed_payment_options['role_pricing']['payment_details'][ $index ]['role_pricing'] : null;
+			$cycle    = isset( $fed_payment_options['role_pricing']['payment_details'][ $index ]['payment_cycle'] ) ? $fed_payment_options['role_pricing']['payment_details'][ $index ]['payment_cycle'] : null;
+			$custom   = isset( $fed_payment_options['role_pricing']['payment_details'][ $index ]['custom_payment_cycle'] ) ? $fed_payment_options['role_pricing']['payment_details'][ $index ]['custom_payment_cycle'] : null;
+			$currency = isset( $fed_payment_options['settings']['currency_type'] ) ? $fed_payment_options['settings']['currency_type'] : null;
+
+			$new_array[ $index ] = ( null !== $price && $currency ) ? $role . ' ' . $currency . ' ' . $price . fed_convert_to_price(
+				$cycle,
+				$custom
+			) : $role;
+		}
+
+		return $new_array;
+	}
+
+	return $new_array;
+}
+
+/**
+ * User Profile Columns.
+ *
+ * @param  string $value  Value.
+ *
+ * @return array
+ */
+function fed_fetch_user_profile_columns( $value ) {
+	global $wpdb;
+	$table_name = $wpdb->prefix . BC_FED_TABLE_USER_PROFILE;
+
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+	$columns = $wpdb->get_results(
+		$wpdb->prepare(
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			"SELECT input_meta, input_type FROM {$table_name} WHERE menu = %s AND show_dashboard = %s AND extra = %s",
+			sanitize_text_field( $value ),
+			'Enable',
+			'yes'
+		),
+		ARRAY_A
+	);
+
+	return $columns;
+}

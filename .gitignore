@@ -1,0 +1,12 @@
+# MySQL raw binary data directory (database is stored in coalitiontest.sql and database.sql)
+mysql-data/
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.log
+
+# Windows temporary files
+*.tmp

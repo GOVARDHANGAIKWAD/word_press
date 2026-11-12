@@ -1,0 +1,1554 @@
+<?php
+/**
+ * Function.
+ *
+ * @package Frontend Dashboard.
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+if ( ! function_exists( 'fed_input_box' ) ) {
+	/**
+	 * Input Fields.
+	 *
+	 * @param  string $meta_key  Meta Key.
+	 * @param  array  $attr  Input Attributes.
+	 * @param  string $type  Input Format.
+	 *
+	 * @return string
+	 */
+	function fed_input_box( $meta_key, $attr = array(), $type = 'text' ) {
+		/**
+		 * Break it, if the input meta doesn't exist
+		 */
+		if ( empty( $meta_key ) ) {
+			wp_die( 'Please add input meta key' );
+		}
+
+		$values                = array();
+		$values['placeholder'] = isset( $attr['placeholder'] ) && ! empty( $attr['placeholder'] ) ? esc_attr(
+			$attr['placeholder']
+		) : '';
+		$values['label']       = isset( $attr['label'] ) && ! empty( $attr['label'] ) ? strip_tags(
+			$attr['label'],
+			'<i><b>'
+		) : '';
+		$values['class_name']  = isset( $attr['class'] ) && ! empty( $attr['class'] ) ? esc_attr( $attr['class'] ) : '';
+
+		$values['user_value'] = isset( $attr['value'] ) && ! empty( $attr['value'] ) ? esc_attr( $attr['value'] ) : '';
+		$values['input_min']  = isset( $attr['min'] ) && ! empty( $attr['min'] ) ? esc_attr( $attr['min'] ) : 0;
+		$values['input_max']  = isset( $attr['max'] ) && ! empty( $attr['max'] ) ? esc_attr(
+			$attr['max']
+		) : 99999999999999999999999999999999999999999999999999;
+		$values['input_step'] = isset( $attr['step'] ) && ! empty( $attr['step'] ) ? esc_attr( $attr['step'] ) : 'any';
+
+		$values['is_required']   = isset( $attr['is_required'] ) && ( 'true' == $attr['required'] ) ? 'required="required"' : '';
+		$values['id_name']       = isset( $attr['id'] ) && ! empty( $attr['id'] ) ? esc_attr( $attr['id'] ) : '';
+		$values['readonly']      = isset( $attr['readonly'] ) && ( true === $attr['readonly'] ) ? true : '';
+		$values['user_value']    = isset( $attr['value'] ) && ! empty( $attr['value'] ) ? esc_attr(
+			$attr['value']
+		) : '';
+		$values['input_value']   = isset( $attr['options'] ) && ! empty( $attr['options'] ) ? $attr['options'] : '';
+		$values['disabled']      = isset( $attr['disabled'] ) && ( true === $attr['disabled'] ) ? true : '';
+		$values['default_value'] = isset( $attr['default_value'] ) && ! empty( $attr['default_value'] ) ? esc_attr(
+			$attr['default_value']
+		) : 'yes';
+		$values['extra']         = isset( $attr['extra'] ) ? $attr['extra'] : '';
+		$values['extended']      = isset( $attr['extended'] ) && ! empty( $attr['extended'] ) ? esc_attr(
+			$attr['extended']
+		) : array();
+		$values['input_type']    = $type;
+		$values['input_meta']    = isset( $attr['name'] ) ? $attr['name'] : $meta_key;
+		$values['content']       = isset( $attr['content'] ) ? $attr['content'] : '';
+
+		return fed_get_input_details( $values );
+	}
+}
+if ( ! function_exists( 'fed_loader' ) ) {
+	/**
+	 * Loader.
+	 *
+	 * @param  string      $hide     Hide class ('hide' or 'hidden').
+	 * @param  string|null $message  Optional message.
+	 *
+	 * @return string
+	 */
+	function fed_loader( $hide = 'hide', $message = null ) {
+		$hide_class = ( 'hide' === $hide || 'hidden' === $hide ) ? 'hide hidden' : $hide;
+		$msg_text   = ! empty( $message ) ? $message : __( 'Please wait...', 'frontend-dashboard' );
+
+		$html  = '<div class="preview-area fed-global-loader-overlay ' . esc_attr( $hide_class ) . '">';
+		$html .= '<div class="fed-loader-card">';
+		$html .= '  <div class="fed-loader-spinner">';
+		$html .= '    <svg class="fed-spinner-svg" viewBox="0 0 50 50">';
+		$html .= '      <circle class="fed-spinner-path" cx="25" cy="25" r="20" fill="none" stroke-width="4"></circle>';
+		$html .= '    </svg>';
+		$html .= '  </div>';
+		$html .= '  <div class="fed-loader-text">' . esc_html( $msg_text ) . '</div>';
+		$html .= '  <div class="spinner_circle" style="display:none !important;">';
+		$html .= '    <div class="double-bounce1"></div>';
+		$html .= '    <div class="double-bounce2"></div>';
+		$html .= '  </div>';
+		$html .= '</div>';
+		$html .= '</div>';
+
+		return $html;
+	}
+}
+if ( ! function_exists( 'fed_sort_by_order' ) ) {
+	/**
+	 * Sort given array by order key.
+	 *
+	 * @param  array $a  First Value.
+	 * @param  array $b  Second Value.
+	 *
+	 * @return int | string.
+	 */
+	function fed_sort_by_order( $a, $b ) {
+		if ( isset( $a['order'], $b['order'] ) ) {
+			return $a['order'] - $b['order'];
+		}
+		if ( isset( $a['input_order'], $b['input_order'] ) ) {
+			return $a['input_order'] - $b['input_order'];
+		}
+		if ( isset( $a['menu_order'], $b['menu_order'] ) ) {
+			return $a['menu_order'] - $b['menu_order'];
+		}
+
+		return 199;
+	}
+}
+
+if ( ! function_exists( 'fed_sort_by_desc' ) ) {
+	/**
+	 * Sort by Desc.
+	 *
+	 * @param  array $a  First Element.
+	 * @param  array $b  Second Element.
+	 *
+	 * @return int
+	 */
+	function fed_sort_by_desc( $a, $b ) {
+		if ( isset( $a['id'], $b['id'] ) ) {
+			return (int) $b['id'] - (int) $a['id'];
+		}
+
+		return 199;
+	}
+}
+
+if ( ! function_exists( 'fed_wp_nonce_field' ) ) {
+	/**
+	 * WP Nonce Field.
+	 *
+	 * @param  int | string $action  Action.
+	 * @param  string       $name  Name.
+	 * @param  bool         $referer  Referer.
+	 * @param  bool         $echo  Echo.
+	 *
+	 * @return string
+	 */
+	function fed_wp_nonce_field( $action = 'fed_nonce', $name = 'fed_nonce', $referer = true, $echo = true ) {
+		$name        = esc_attr( $name );
+		$nonce_field = '<input type="hidden" name="' . $name . '" value="' . wp_create_nonce( $action ) . '" />';
+
+		if ( $referer ) {
+			$nonce_field .= wp_referer_field( false );
+		}
+
+		if ( $echo ) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			echo $nonce_field;
+		}
+
+		return $nonce_field;
+	}
+}
+
+if ( ! function_exists( 'fed_get_random_string' ) ) {
+	/**
+	 * Generate Random String.
+	 *
+	 * @param  int $length  Length.
+	 *
+	 * @return string
+	 */
+	function fed_get_random_string( $length = 10 ) {
+		$characters        = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+		$characters_length = strlen( $characters );
+		$random_string     = '';
+		for ( $i = 0; $i < $length; $i++ ) {
+			$random_string .= $characters[ wp_rand( 0, $characters_length - 1 ) ];
+		}
+
+		return $random_string;
+	}
+}
+
+
+if ( ! function_exists( 'fed_is_shortcode_in_content' ) ) {
+	/**
+	 * Is Shortcode in Content.
+	 *
+	 * @param  mixed $shortcodes  Shortcodes.
+	 *
+	 * @return bool
+	 */
+	function fed_is_shortcode_in_content( $shortcodes = null ) {
+		global $post;
+		if ( null === $shortcodes ) {
+			$shortcodes = fed_shortcode_lists();
+		}
+
+		if ( is_array( $shortcodes ) && is_a( $post, 'WP_Post' ) ) {
+			foreach ( $shortcodes as $shortcode ) {
+				if ( has_shortcode( $post->post_content, $shortcode ) ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+}
+
+if ( ! function_exists( 'fed_shortcode_lists' ) ) {
+	/**
+	 * Shortcode Lists.
+	 *
+	 * @return mixed|void
+	 */
+	function fed_shortcode_lists() {
+		return apply_filters(
+			'fed_shortcode_lists',
+			array(
+				'fed_login',
+				'fed_login_only',
+				'fed_register_only',
+				'fed_forgot_password_only',
+				'fed_dashboard',
+				'fed_user',
+				'fed_transactions',
+			)
+		);
+	}
+}
+
+
+if ( ! function_exists( 'fed_js_translation' ) ) {
+	/**
+	 * JS Translation.
+	 *
+	 * @return array
+	 */
+	function fed_js_translation() {
+		return array(
+			'plugin_url'          => plugins_url( BC_FED_PLUGIN_NAME ),
+			'payment_info'        => 'no',
+			'fed_admin_form_post' => admin_url(
+				'admin-ajax.php?action=fed_admin_form_post&fed_nonce=' . wp_create_nonce( 'fed_nonce' )
+			),
+			'fed_login_form_post' => admin_url(
+				'admin-ajax.php?action=fed_login_form_post&fed_nonce=' . wp_create_nonce( 'fed_nonce' )
+			),
+			'media'               => array(
+				'ajax_url'            => admin_url( 'admin-ajax.php' ),
+				'nonce'               => wp_create_nonce( 'fed_nonce' ),
+				'pdf_embedder_active' => class_exists( '\PDFEmbedder\Plugin' ) || function_exists( 'pdf_embedder' ) || shortcode_exists( 'pdf-embedder' ),
+			),
+			'alert'               => array(
+				'confirmation'                  => array(
+					'title'   => __( 'Are you sure?', 'frontend-dashboard' ),
+					'text'    => __( 'You want to do this action?', 'frontend-dashboard' ),
+					'confirm' => __( 'Yes, Please Proceed', 'frontend-dashboard' ),
+					'cancel'  => __( 'No, Cancel it', 'frontend-dashboard' ),
+				),
+				'redirecting'                   => __( 'Please wait, you are redirecting..', 'frontend-dashboard' ),
+				'title_cancelled'               => __( 'Cancelled', 'frontend-dashboard' ),
+				'something_went_wrong'          => __( 'Something Went Wrong', 'frontend-dashboard' ),
+				'invalid_form_submission'       => __( 'Invalid form submission', 'frontend-dashboard' ),
+				'please_try_again'              => __( 'Please try again', 'frontend-dashboard' ),
+				'plugin_installed_successfully' => __(
+					'Plugin Installed and Activated Successfully',
+					'frontend-dashboard'
+				),
+			),
+			'common'              => array(
+				'hide_add_new_menu'    => __( 'Hide Add New Menu', 'frontend-dashboard' ),
+				'add_new_menu'         => __( 'Add New Menu', 'frontend-dashboard' ),
+				'successfully_updated' => __( 'Successfully Updated', 'frontend-dashboard' ),
+				'successfully_added'   => __( 'Successfully Added', 'frontend-dashboard' ),
+			),
+			'password_meter'      => array(
+				'empty'    => __( 'Strength indicator', 'frontend-dashboard' ),
+				'short'    => __( 'Very weak', 'frontend-dashboard' ),
+				'bad'      => __( 'Weak', 'frontend-dashboard' ),
+				'good'     => _x( 'Medium', 'password strength', 'frontend-dashboard' ),
+				'strong'   => __( 'Strong', 'frontend-dashboard' ),
+				'mismatch' => __( 'Mismatch', 'frontend-dashboard' ),
+			),
+		);
+	}
+}
+
+if ( ! function_exists( 'fed_get_ajax_form_action' ) ) {
+	/**
+	 * Fed Get AJAX Form Action.
+	 *
+	 * @param  null $action  Action.
+	 *
+	 * @return string|void
+	 */
+	function fed_get_ajax_form_action( $action = null ) {
+		if ( $action ) {
+			return admin_url( 'admin-ajax.php?action=' . $action );
+		}
+
+		return '#';
+	}
+}
+
+if ( ! function_exists( 'fed_get_form_action' ) ) {
+	/**
+	 * Get Form Action.
+	 *
+	 * @param  null $action  Action.
+	 *
+	 * @return string|void
+	 */
+	function fed_get_form_action( $action = null ) {
+		if ( $action ) {
+			return get_admin_url() . 'admin-post.php?action=' . $action;
+		}
+
+		return '#';
+	}
+}
+
+
+if ( ! function_exists( 'fed_is_current_user_role' ) ) {
+
+	/**
+	 * Is Current User Role.
+	 *
+	 * @param  array $allowed_roles  Allowed Roles.
+	 * @param  bool  $is_key  Is Key.
+	 *
+	 * @return bool
+	 */
+	function fed_is_current_user_role( array $allowed_roles, $is_key = true ) {
+		if ( count( $allowed_roles ) ) {
+			$user          = fed_get_current_user_role();
+			$allowed_roles = $is_key ? array_keys( $allowed_roles ) : $allowed_roles;
+			if ( array_intersect( $allowed_roles, $user ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+}
+
+
+if ( ! function_exists( 'fed_is_admin' ) ) {
+	/**
+	 * Is Admin.
+	 *
+	 * @return bool
+	 */
+	function fed_is_admin() {
+		$user = wp_get_current_user();
+
+		return in_array( 'administrator', $user->roles ) ? true : false;
+	}
+}
+
+if ( ! function_exists( 'fed_is_elevated_role' ) ) {
+	/**
+	 * Check if a WordPress user role has elevated administrative or editorial capabilities.
+	 *
+	 * @param string $role_slug Role slug.
+	 * @return bool
+	 */
+	function fed_is_elevated_role( $role_slug ) {
+		if ( empty( $role_slug ) || ! is_string( $role_slug ) ) {
+			return false;
+		}
+
+		$normalized = strtolower( trim( $role_slug ) );
+
+		if ( 'administrator' === $normalized ) {
+			return true;
+		}
+
+		$role = get_role( $normalized );
+		if ( ! $role || empty( $role->capabilities ) || ! is_array( $role->capabilities ) ) {
+			return false;
+		}
+
+		$elevated_capabilities = array(
+			'manage_options',
+			'edit_others_posts',
+			'edit_others_pages',
+			'delete_others_posts',
+			'delete_others_pages',
+			'promote_users',
+			'delete_users',
+			'create_users',
+			'edit_users',
+			'unfiltered_html',
+			'activate_plugins',
+			'edit_plugins',
+			'edit_themes',
+			'switch_themes',
+			'install_plugins',
+			'install_themes',
+			'update_core',
+			'update_plugins',
+			'update_themes',
+		);
+
+		foreach ( $elevated_capabilities as $cap ) {
+			if ( ! empty( $role->capabilities[ $cap ] ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+}
+
+if ( ! function_exists( 'fed_get_allowed_action_hooks' ) ) {
+	/**
+	 * Get allowed action hooks map with required capabilities.
+	 *
+	 * @return array
+	 */
+	function fed_get_allowed_action_hooks() {
+		$hooks = array(
+			'fedinstalladdons@install'               => 'install_plugins',
+			'fedinstalladdons@activate'              => 'activate_plugins',
+			'fedemail@update'                        => 'manage_options',
+			'fedemail@test_email'                    => 'manage_options',
+			'fedemail@fetch_logs'                    => 'manage_options',
+			'fedemail@resend_email'                  => 'manage_options',
+			'fedemail@delete_log'                    => 'manage_options',
+			'fedemail@bulk_action_logs'              => 'manage_options',
+			'fedpaymentdashboard@dashboard'          => 'manage_options',
+			'fedpaymentdashboard'                    => 'manage_options',
+			'fedpaymentgatewayhub@hub'               => 'manage_options',
+			'fedpaymentgatewayhub'                   => 'manage_options',
+			'fedpayment@settings'                    => 'manage_options',
+			'fedpayment@update'                      => 'manage_options',
+			'fedpayment'                             => 'manage_options',
+			'fedsubscription@subscriptions'          => 'manage_options',
+			'fedsubscription@plans'                  => 'manage_options',
+			'fedsubscription@save_plan'              => 'manage_options',
+			'fedsubscription@duplicate_plan'         => 'manage_options',
+			'fedsubscription@delete_plan'            => 'manage_options',
+			'fedtransaction@transactions'            => 'manage_options',
+			'fedtransaction@add_new_transaction'     => 'manage_options',
+			'fedtransaction@save_manual_transaction' => 'manage_options',
+			'fedtransaction@add_new_item'            => 'manage_options',
+			'fedtransaction@add_items'               => 'manage_options',
+			'fedtransaction@update'                  => 'manage_options',
+			'fedtransaction@items'                   => 'read',
+			'fedinvoicetemplate@template'            => 'manage_options',
+			'fedinvoicetemplate@update'              => 'manage_options',
+			'fedinvoice@details'                     => 'manage_options',
+			'fedinvoice@update'                      => 'manage_options',
+			'fedinvoice@user'                        => 'manage_options',
+			'fedinvoice@store_user'                  => 'manage_options',
+			'fedinvoice@download'                    => 'read',
+			'fedinvoice'                             => 'manage_options',
+			'fedschatwhatsapp@settings_update'       => 'manage_options',
+			'fedschatwhatsapp@layout_update'         => 'manage_options',
+			'fedschatwhatsapp@user_update'           => 'manage_options',
+			'fedschatwhatsapp@ajax_dummy_user_form'  => 'manage_options',
+		);
+
+		return apply_filters( 'fed_allowed_action_hooks', $hooks );
+	}
+}
+
+if ( ! function_exists( 'fed_get_allowed_action_functions' ) ) {
+	/**
+	 * Get allowed callable action functions map with required capabilities.
+	 *
+	 * @return array
+	 */
+	function fed_get_allowed_action_functions() {
+		$functions = array(
+			'fed_admin_frontend_login_menu_save' => 'manage_options',
+		);
+
+		return apply_filters( 'fed_allowed_action_functions', $functions );
+	}
+}
+
+if ( ! function_exists( 'fed_verify_action_hook_authorization' ) ) {
+	/**
+	 * Verify if an action hook string (Class@method) is authorized for current user.
+	 *
+	 * @param string $item Class@method or Class.
+	 * @return bool
+	 */
+	function fed_verify_action_hook_authorization( $item ) {
+		if ( ! is_string( $item ) || empty( $item ) ) {
+			return false;
+		}
+
+		$parts       = explode( '@', trim( $item ) );
+		$class_name  = trim( $parts[0] );
+		$method_name = isset( $parts[1] ) && ! empty( $parts[1] ) ? trim( $parts[1] ) : 'update';
+
+		$hook_key  = strtolower( $class_name . '@' . $method_name );
+		$class_key = strtolower( $class_name );
+
+		$allowed_hooks = fed_get_allowed_action_hooks();
+
+		$required_cap = null;
+		if ( isset( $allowed_hooks[ $hook_key ] ) ) {
+			$required_cap = $allowed_hooks[ $hook_key ];
+		} elseif ( isset( $allowed_hooks[ $class_key ] ) ) {
+			$required_cap = $allowed_hooks[ $class_key ];
+		}
+
+		if ( null === $required_cap ) {
+			/**
+			 * Filter to allow custom capability resolution for extensions.
+			 *
+			 * @param string|null $required_cap Capability required.
+			 * @param string      $class_name   Class name.
+			 * @param string      $method_name  Method name.
+			 */
+			$custom_cap = apply_filters( 'fed_action_hook_required_capability', null, $class_name, $method_name );
+			if ( is_string( $custom_cap ) && ! empty( $custom_cap ) ) {
+				$required_cap = $custom_cap;
+			} else {
+				return false;
+			}
+		}
+
+		return current_user_can( $required_cap );
+	}
+}
+
+if ( ! function_exists( 'fed_verify_action_fn_authorization' ) ) {
+	/**
+	 * Verify if a callable function is authorized for current user.
+	 *
+	 * @param string $func Function name.
+	 * @return bool
+	 */
+	function fed_verify_action_fn_authorization( $func ) {
+		if ( ! is_string( $func ) || empty( $func ) ) {
+			return false;
+		}
+
+		$func_key          = strtolower( trim( $func ) );
+		$allowed_functions = fed_get_allowed_action_functions();
+
+		if ( ! isset( $allowed_functions[ $func_key ] ) ) {
+			/**
+			 * Filter to allow custom function capability resolution for extensions.
+			 *
+			 * @param string|null $required_cap Capability required.
+			 * @param string      $func         Function name.
+			 */
+			$custom_cap = apply_filters( 'fed_action_fn_required_capability', null, $func );
+			if ( is_string( $custom_cap ) && ! empty( $custom_cap ) ) {
+				$required_cap = $custom_cap;
+			} else {
+				return false;
+			}
+		} else {
+			$required_cap = $allowed_functions[ $func_key ];
+		}
+
+		return current_user_can( $required_cap );
+	}
+}
+
+if ( ! function_exists( 'fed_is_user_role' ) ) {
+	/**
+	 * Check is User Role.
+	 *
+	 * @param  string $user_role  user role.
+	 *
+	 * @return bool
+	 */
+	function fed_is_user_role( $user_role ) {
+		$user = wp_get_current_user();
+
+		return in_array( $user_role, $user->roles ) ? true : false;
+	}
+}
+
+if ( ! function_exists( 'fed_get_default_menu_type' ) ) {
+	/**
+	 * Get Default Menu Type.
+	 *
+	 * @return mixed|void
+	 */
+	function fed_get_default_menu_type() {
+		return apply_filters(
+			'fed_get_default_menu_type',
+			array(
+				'post',
+				'user',
+				'logout',
+				'collapse',
+				'custom',
+			)
+		);
+	}
+}
+
+if ( ! function_exists( 'fed_menu_split' ) ) {
+	/**
+	 * Menu Split.
+	 *
+	 * @param  string $string  String.
+	 *
+	 * @return array
+	 */
+	function fed_menu_split( $string ) {
+		return explode( '_', $string, 2 );
+	}
+}
+
+if ( ! function_exists( 'fed_get_menu_mobile_attributes' ) ) {
+	/**
+	 * Get Menu Mobile Attributes.
+	 *
+	 * @return array
+	 */
+	function fed_get_menu_mobile_attributes() {
+		$collapse = array();
+		if ( wp_is_mobile() ) {
+			$collapse['in']     = '';
+			$collapse['d']      = ' collapsed';
+			$collapse['expand'] = 'false';
+		} else {
+			$collapse['in']     = 'in';
+			$collapse['d']      = ' ';
+			$collapse['expand'] = 'true';
+		}
+
+		return $collapse;
+	}
+}
+
+
+if ( ! function_exists( 'bcdump' ) ) {
+	/** Dump.
+	 *
+	 * @param  mixed $var  Variable.
+	 * @param  bool  $exit  Exit.
+	 */
+	function bcdump( $var, $exit = false ) {
+		echo '<pre style="font-size:11px;">';
+
+		if ( is_array( $var ) || is_object( $var ) ) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped, WordPress.PHP.DevelopmentFunctions.error_log_print_r
+			echo htmlentities( print_r( $var, true ) );
+		} elseif ( is_string( $var ) ) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			echo 'string(' . strlen( $var ) . ') "' . htmlentities( $var ) . "\"\n";
+		} else {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_dump
+			var_dump( $var );
+		}
+
+		echo "\n</pre>";
+
+		if ( $exit ) {
+			exit;
+		}
+	}
+}
+
+if ( ! function_exists( 'fed_create_new_instance' ) ) {
+	/**
+	 * Create New Instance.
+	 *
+	 * @param  mixed $class_name  Class Name.
+	 * @param  array $arguments  Argument.
+	 *
+	 * @return bool|mixed
+	 */
+	function fed_create_new_instance( $class_name, array $arguments = array() ) {
+		if ( class_exists( $class_name ) ) {
+			try {
+				return call_user_func_array(
+					array(
+						new ReflectionClass( $class_name ),
+						'newInstance',
+					),
+					$arguments
+				);
+			} catch ( ReflectionException $e ) {
+				wp_die( 'Class Name ' . esc_attr( $class_name ) . ' Doesnt exist' );
+			}
+		}
+
+		wp_die( 'Class Name ' . esc_attr( $class_name ) . ' Doesnt exist' );
+	}
+}
+
+if ( ! function_exists( 'fed_menu_page_url' ) ) {
+	/**
+	 * Menu Page URL
+	 *
+	 * @param  string $page_slug  Page Slug.
+	 *
+	 * @param  mixed  $parameters  Parameters.
+	 *
+	 * @return string|void
+	 */
+	function fed_menu_page_url( $page_slug, $parameters = null ) {
+		if ( is_array( $parameters ) && count( $parameters ) ) {
+			return admin_url( '/admin.php?page=' . $page_slug ) . '&' . http_build_query( $parameters );
+		}
+
+		return admin_url( '/admin.php?page=' . $page_slug );
+	}
+}
+
+if ( ! function_exists( 'fed_encrypt' ) ) {
+	/**
+	 * Encrypt.
+	 *
+	 * @param  string $string  String.
+	 *
+	 * @return bool|string
+	 */
+	function fed_encrypt( $string ) {
+		$secret_key = wp_create_nonce();
+		$secret_iv  = fed_generate_secret();
+
+		$encrypt_method = 'AES-128-CBC';
+		$key            = hash( 'sha256', $secret_key );
+		$iv             = substr( hash( 'sha256', $secret_iv ), 0, 16 );
+
+		return base64_encode( openssl_encrypt( $string, $encrypt_method, $key, 0, $iv ) );
+	}
+}
+
+if ( ! function_exists( 'fed_decrypt' ) ) {
+	/**
+	 * Decrypt.
+	 *
+	 * @param  string $string  String.
+	 *
+	 * @return string
+	 */
+	function fed_decrypt( $string ) {
+		$secret_key = wp_create_nonce();
+		$secret_iv  = fed_generate_secret();
+
+		$encrypt_method = 'AES-128-CBC';
+		$key            = hash( 'sha256', $secret_key );
+		$iv             = substr( hash( 'sha256', $secret_iv ), 0, 16 );
+
+		return openssl_decrypt( base64_decode( $string ), $encrypt_method, $key, 0, $iv );
+	}
+}
+
+if ( ! function_exists( 'fed_generate_secret' ) ) {
+	/**
+	 * Generate Secret.
+	 *
+	 * @return mixed|string
+	 */
+	function fed_generate_secret() {
+		$session = fed_sanitize_text_field( $_SESSION );
+		if ( isset( $session['fed_secret'] ) && ! empty( $session['fed_secret'] ) ) {
+			return $session['fed_secret'];
+		}
+		$session['fed_secret'] = fed_get_random_string( 5 );
+
+		return $session['fed_secret'];
+	}
+}
+
+if ( ! function_exists( 'fed_add_admin_notifications' ) ) {
+	/**
+	 * Add Admin Notifications.
+	 *
+	 * @param  array $array  Array.
+	 */
+	function fed_add_admin_notifications( array $array ) {
+		$_SESSION['fed_admin_errors'] = fed_sanitize_text_field( $array );
+	}
+}
+
+add_action( 'init', 'fed_check_admin_notifications' );
+/**
+ * Check Admin Notifications.
+ */
+function fed_check_admin_notifications() {
+	if ( isset( $_SESSION['fed_admin_errors'] ) && count( $_SESSION['fed_admin_errors'] ) > 0 ) {
+		add_action( 'admin_notices', 'fed_show_notifications_message' );
+	}
+}
+
+/**
+ * Show Notifications Message.
+ */
+function fed_show_notifications_message() {
+	if ( empty( $_SESSION['fed_admin_errors'] ) || ! is_array( $_SESSION['fed_admin_errors'] ) ) {
+		return;
+	}
+	?>
+	<div class="error notice">
+		<p>
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			<?php echo esc_html( fed_convert_array_value_to_string( $_SESSION['fed_admin_errors'], ',' ) ); ?>
+		</p>
+	</div>
+	<?php
+	fed_clear_admin_notification();
+}
+
+/**
+ * Clear Admin Notification.
+ */
+function fed_clear_admin_notification() {
+	if ( isset( $_SESSION['fed_admin_errors'] ) ) {
+		$_SESSION['fed_admin_errors'] = array();
+	}
+}
+
+
+/**
+ * Recursively implodes an array with optional key inclusion.
+ *
+ * Example of $include_keys output: key, value, key, value, key, value
+ *
+ * @access  public
+ *
+ * @param  array  $array  multi-dimensional array to recursively implode.
+ * @param  string $glue  value that glues elements together.
+ * @param  bool   $include_keys  include keys before their values.
+ * @param  bool   $trim_all  trim ALL whitespace from string.
+ *
+ * @return  string  imploded array.
+ */
+function fed_convert_array_value_to_string( array $array, $glue = ',', $include_keys = false, $trim_all = false ) {
+	$glued_string = '';
+	// Recursively iterates array and adds key/value to glued string.
+	array_walk_recursive(
+		$array,
+		function ( $value, $key ) use ( $glue, $include_keys, &$glued_string ) {
+			$include_keys and $glued_string .= $key . $glue;
+			$glued_string                   .= $value . $glue;
+		}
+	);
+	// Removes last $glue from string.
+	strlen( $glue ) > 0 and $glued_string = substr( $glued_string, 0, - strlen( $glue ) );
+	// Trim ALL whitespace.
+	$trim_all and $glued_string = preg_replace( '/(\s)/ixsm', '', $glued_string );
+
+	return (string) $glued_string;
+}
+
+/**
+ * Show Alert Message.
+ *
+ * @param  string $message  Message.
+ * @param  string $type  Type.
+ */
+function fed_show_alert_message( $message, $type = 'danger' ) {
+	$is_error   = ( 'danger' === $type || 'error' === $type );
+	$is_warning = ( 'warning' === $type );
+	$is_info    = ( 'info' === $type );
+
+	if ( $is_error ) {
+		$bg_class    = 'bg-rose-50 border-rose-200 text-rose-800';
+		$icon_bg     = 'bg-rose-100 text-rose-600';
+		$icon_svg    = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+		$close_hover = 'text-rose-400 hover:text-rose-600 hover:bg-rose-100';
+	} elseif ( $is_warning ) {
+		$bg_class    = 'bg-amber-50 border-amber-200 text-amber-800';
+		$icon_bg     = 'bg-amber-100 text-amber-600';
+		$icon_svg    = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
+		$close_hover = 'text-amber-400 hover:text-amber-600 hover:bg-amber-100';
+	} elseif ( $is_info ) {
+		$bg_class    = 'bg-sky-50 border-sky-200 text-sky-800';
+		$icon_bg     = 'bg-sky-100 text-sky-600';
+		$icon_svg    = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+		$close_hover = 'text-sky-400 hover:text-sky-600 hover:bg-sky-100';
+	} else {
+		$bg_class    = 'bg-emerald-50/90 border-emerald-200/90 text-emerald-900';
+		$icon_bg     = 'bg-emerald-100 text-emerald-600';
+		$icon_svg    = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>';
+		$close_hover = 'text-emerald-500 hover:text-emerald-700 hover:bg-emerald-100';
+	}
+	?>
+	<div class="fed_alert_notification flex items-center justify-between p-4 my-4 rounded-2xl border shadow-2xs transition-all duration-300 <?php echo esc_attr( $bg_class ); ?>" role="alert">
+		<div class="flex items-center gap-3 min-w-0">
+			<div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 <?php echo esc_attr( $icon_bg ); ?>">
+				<?php echo $icon_svg; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+			</div>
+			<div class="min-w-0 text-xs sm:text-sm font-semibold leading-normal">
+				<?php echo wp_kses_post( $message ); ?>
+			</div>
+		</div>
+		<button type="button" class="fed-close-alert-btn p-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ml-3 <?php echo esc_attr( $close_hover ); ?>" onclick="this.closest('.fed_alert_notification').remove();" aria-label="Close">
+			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+		</button>
+	</div>
+	<?php
+}
+
+
+/**
+ * Illegal User Names.
+ *
+ * @return array
+ */
+function fed_illegal_usernames() {
+	$login   = get_option( 'fed_admin_login' );
+	$illegal = isset( $login['restrict_username'] ) && ! empty( $login['restrict_username'] ) ? explode(
+		',',
+		$login['restrict_username']
+	) : array();
+
+	return apply_filters( 'fed_illegal_user_names', $illegal );
+}
+
+/**
+ * Validate User Name.
+ *
+ * @param  string $username  user Name.
+ *
+ * @return bool
+ */
+function fed_validate_username( $username ) {
+	$result = preg_grep( '#' . $username . '#i', fed_illegal_usernames() );
+
+	if ( $result && count( $result ) ) {
+		return true;
+	}
+
+	return false;
+}
+
+
+if ( ! function_exists( 'fed_is_shortcode_in_page' ) ) {
+	/**
+	 * Is Shortcode in Page.
+	 *
+	 * @param  string $shorcode  Shortcode.
+	 *
+	 * @return bool
+	 */
+	function fed_is_shortcode_in_page( $shorcode ) {
+		global $post;
+		if ( has_shortcode( $post->post_content, $shorcode ) ) {
+			return true;
+		}
+
+		return false;
+	}
+}
+
+/**
+ * Get Current User.
+ *
+ * @param  string $key  User Column Key.
+ *
+ * @return bool|string
+ */
+function fed_get_current_user( $key = 'id' ) {
+	$current_user = wp_get_current_user();
+	if ( ! ( $current_user instanceof WP_User ) ) {
+		return false;
+	}
+
+	switch ( $key ) {
+		case 'email':
+			return esc_html( $current_user->user_email );
+			break;
+		case 'username':
+			return esc_html( $current_user->user_login );
+			break;
+		case 'firstname':
+			return esc_html( $current_user->user_firstname );
+			break;
+		case 'lastname':
+			return esc_html( $current_user->user_lastname );
+			break;
+		case 'display_name':
+			return esc_html( $current_user->display_name );
+			break;
+		case 'id':
+			return esc_html( $current_user->ID );
+			break;
+	}
+
+	return false;
+}
+
+/**
+ * Convert Timestamp to Date Format.
+ *
+ * @param  string $timestamp  Timestamp.
+ *
+ * @return false|string
+ */
+function fed_timestamp_to_date_format( $timestamp ) {
+	return $timestamp && ! empty( $timestamp ) ? gmdate( get_option( 'date_format' ), $timestamp ) : 'ERROR';
+}
+
+/**
+ * Get Formatted Date,
+ *
+ * @param  string $date  Date.
+ *
+ * @return false|string
+ */
+function fed_get_formatted_date( $date ) {
+	return $date && ! empty( $date ) ? gmdate( get_option( 'date_format' ), strtotime( $date ) ) : 'ERROR';
+}
+
+
+/**
+ * Get Menu URL by Slug
+ *
+ * @param  string $menu_slug  Menu Slug.
+ * @param  string $menu_type  Menu Type.
+ *
+ * @return array|array[]|bool|mixed|string|\WP_Error
+ */
+function fed_get_menu_url_by_slug( $menu_slug, $menu_type ) {
+	if ( $menu_slug && ! empty( $menu_slug ) && is_user_logged_in() ) {
+		$menu          = wp_cache_get( 'fed_dashboard_menu_' . get_current_user_id(), 'frontend-dashboard' );
+		$dashboard_url = fed_get_dashboard_url();
+		if ( $menu && isset( $menu['menu_items'] ) && is_array( $menu ) && count( $menu ) ) {
+			foreach ( $menu['menu_items'] as $key => $item ) {
+				if ( $item['menu_slug'] === $menu_slug ) {
+					return add_query_arg(
+						array(
+							'menu_type' => $menu_type,
+							'menu_slug' => $menu_slug,
+							'menu_id'   => fed_get_data( 'id', $item, 0 ),
+							'parent_id' => $key,
+							'fed_nonce' => wp_create_nonce(
+								'fed_nonce'
+							),
+						),
+						$dashboard_url
+					);
+				}
+			}
+
+			return false;
+		} else {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$dashboard_container = new FED_Routes( $_REQUEST );
+
+			$menu = $dashboard_container->setDashboardMenuQuery();
+
+			foreach ( $menu['menu_items'] as $key => $item ) {
+				if ( $item['menu_slug'] === $menu_slug ) {
+					return add_query_arg(
+						array(
+							'menu_type' => $menu_type,
+							'menu_slug' => $menu_slug,
+							'menu_id'   => fed_get_data( 'id', $item, 0 ),
+							'parent_id' => $key,
+							'fed_nonce' => wp_create_nonce(
+								'fed_nonce'
+							),
+						),
+						$dashboard_url
+					);
+				}
+			}
+
+			return false;
+		}
+	}
+
+	return false;
+}
+
+
+/**
+ * WordPress VIP Functions.
+ */
+
+
+/**
+ * Get User Meta
+ *
+ * @param  int    $user_id  User ID
+ * @param  string $key  User Meta Key
+ * @param  bool   $single  Single or array
+ *
+ * @return mixed
+ */
+function fed_get_user_meta( $user_id, $key = '', $single = false ) {
+	if ( defined( 'WPCOM_IS_VIP_ENV' ) && WPCOM_IS_VIP_ENV ) {
+		return get_user_attribute( $user_id, $key );
+	}
+
+	return get_user_meta( $user_id, $key, $single );
+}
+
+/**
+ * Show Password Meter
+ */
+
+add_action(
+	'fed_register_below_form_field',
+	function ( $input_meta, $content ) {
+		if ( $content && ( 'user_pass' === $input_meta || 'confirmation_password' === $input_meta ) ) {
+			?>
+		<span class="fed_password_strength"></span>
+			<?php
+		}
+	},
+	10,
+	2
+);
+
+/**
+ * Get Incompatible Add-ons (< 3.0.0).
+ *
+ * @return array
+ */
+function fed_get_incompatible_addons() {
+	if ( class_exists( '\FED\Services\Diagnostics\AddonCompatibilityManager' ) ) {
+		return \FED\Services\Diagnostics\AddonCompatibilityManager::instance()->get_incompatible_addons();
+	}
+	return array();
+}
+
+/**
+ * Check if there are incompatible add-ons.
+ *
+ * @return bool
+ */
+function fed_has_incompatible_addons() {
+	if ( class_exists( '\FED\Services\Diagnostics\AddonCompatibilityManager' ) ) {
+		return \FED\Services\Diagnostics\AddonCompatibilityManager::instance()->has_incompatible_addons();
+	}
+	return false;
+}
+
+/**
+ * Render Header Banner for Incompatible Add-ons.
+ *
+ * @return string HTML
+ */
+function fed_render_addon_compatibility_banner() {
+	if ( class_exists( '\FED\Services\Diagnostics\AddonCompatibilityManager' ) ) {
+		return \FED\Services\Diagnostics\AddonCompatibilityManager::instance()->render_in_app_banner();
+	}
+	return '';
+}
+
+if ( ! function_exists( 'fed_no_texturize_tags' ) ) {
+	/**
+	 * Prevent wptexturize from converting quotes inside textarea elements.
+	 *
+	 * @param array $tags HTML tags not to texturize.
+	 * @return array
+	 */
+	function fed_no_texturize_tags( $tags ) {
+		if ( ! in_array( 'textarea', (array) $tags, true ) ) {
+			$tags[] = 'textarea';
+		}
+		return $tags;
+	}
+	add_filter( 'no_texturize_tags', 'fed_no_texturize_tags' );
+}
+
+if ( ! function_exists( 'fed_no_texturize_shortcodes' ) ) {
+	/**
+	 * Prevent wptexturize from converting quotes inside FED shortcodes.
+	 *
+	 * @param array $shortcodes Shortcodes not to texturize.
+	 * @return array
+	 */
+	function fed_no_texturize_shortcodes( $shortcodes ) {
+		$fed_shortcodes = array(
+			'fed_dashboard',
+			'frontend_dashboard',
+			'fed_login',
+			'frontend_dashboard_login',
+			'fed_register',
+			'fed_forgot_password',
+			'fed_transactions',
+		);
+		return array_unique( array_merge( (array) $shortcodes, $fed_shortcodes ) );
+	}
+	add_filter( 'no_texturize_shortcodes', 'fed_no_texturize_shortcodes' );
+}
+
+if ( ! function_exists( 'fed_clean_html_tag_attributes' ) ) {
+	/**
+	 * Clean and normalize quotes inside HTML tags to prevent broken attributes.
+	 *
+	 * Strips smart/curly quotes, mixed quotes, and HTML quote entities from inside
+	 * HTML tag attributes, ensuring standard ASCII double-quoted attributes: name="value".
+	 *
+	 * @param string $content HTML content.
+	 * @return string Cleaned HTML content.
+	 */
+	function fed_clean_html_tag_attributes( $content ) {
+		if ( ! is_string( $content ) || '' === $content ) {
+			return $content;
+		}
+
+		$entity_map = array(
+			'&ldquo;' => '“',
+			'&rdquo;' => '”',
+			'&#8220;' => '“',
+			'&#8221;' => '”',
+			'&#8243;' => '″',
+			'&#147;'  => '“',
+			'&#148;'  => '”',
+		);
+
+		return preg_replace_callback(
+			'/<([a-z][a-z0-9]*)\b([^>]*?)(\/?)>/i',
+			static function ( $tag_matches ) use ( $entity_map ) {
+				$tag_name   = $tag_matches[1];
+				$attributes = $tag_matches[2];
+				$closing    = $tag_matches[3];
+
+				if ( empty( trim( $attributes ) ) ) {
+					return $tag_matches[0];
+				}
+
+				$attributes = strtr( $attributes, $entity_map );
+
+				$pattern = '/([a-zA-Z0-9_\-:]+)\s*=\s*(?:'
+					. '("([^"]*)")|'
+					. '(\'([^\']*)\')|'
+					. '([“\xe2\x80\x9c]([^”\xe2\x80\x9d]*)[”\xe2\x80\x9d])|'
+					. '([”\xe2\x80\x9d]([^”\xe2\x80\x9d]*)[”\xe2\x80\x9d])|'
+					. '([^\s"\'>]+)'
+					. ')/u';
+
+				$new_attributes = preg_replace_callback(
+					$pattern,
+					static function ( $attr_matches ) {
+						$attr_name = $attr_matches[1];
+						$raw_val   = '';
+
+						if ( isset( $attr_matches[3] ) && '' !== $attr_matches[3] ) {
+							$raw_val = $attr_matches[3];
+						} elseif ( isset( $attr_matches[5] ) && '' !== $attr_matches[5] ) {
+							$raw_val = $attr_matches[5];
+						} elseif ( isset( $attr_matches[7] ) && '' !== $attr_matches[7] ) {
+							$raw_val = $attr_matches[7];
+						} elseif ( isset( $attr_matches[9] ) && '' !== $attr_matches[9] ) {
+							$raw_val = $attr_matches[9];
+						} elseif ( isset( $attr_matches[10] ) ) {
+							$raw_val = $attr_matches[10];
+						}
+
+						$curly_chars = "\xe2\x80\x9c\xe2\x80\x9d\xe2\x80\xb3\x22\x27“”″\"'";
+						$clean_val   = trim( $raw_val, $curly_chars );
+
+						return $attr_name . '="' . esc_attr( $clean_val ) . '"';
+					},
+					$attributes
+				);
+
+				$slash = ( '' !== $closing ) ? ' ' . $closing : '';
+				return '<' . $tag_name . ' ' . trim( $new_attributes ) . $slash . '>';
+			},
+			$content
+		);
+	}
+}
+
+if ( ! function_exists( 'fed_get_brand_logo_html' ) ) {
+	/**
+	 * Get brand logo HTML markup.
+	 *
+	 * Checks Login logo, Dashboard brand logo (fed_upl_website_logo), theme custom logo, and applies filters.
+	 *
+	 * @param array $args Optional custom arguments (context, wrapper_class).
+	 * @return string HTML logo markup.
+	 */
+	function fed_get_brand_logo_html( $args = array() ) {
+		$context  = isset( $args['context'] ) ? sanitize_key( $args['context'] ) : 'login';
+		$upl_opts = get_option( 'fed_admin_settings_upl', array() );
+		$logo_id  = 0;
+
+		// 1. Primary: Dashboard Brand Logo from Frontend Dashboard > Settings > Dashboard > Settings
+		if ( ! empty( $upl_opts['settings']['fed_upl_website_logo'] ) ) {
+			$logo_id = (int) $upl_opts['settings']['fed_upl_website_logo'];
+		}
+
+		// 2. Fall back to WordPress Site Custom Logo
+		if ( ! $logo_id && function_exists( 'has_custom_logo' ) && has_custom_logo() ) {
+			$logo_id = (int) get_theme_mod( 'custom_logo' );
+		}
+
+		$logo_url = $logo_id ? wp_get_attachment_image_url( $logo_id, 'full' ) : '';
+		$logo_url = apply_filters( 'fed_brand_logo_url', $logo_url, $context, $logo_id );
+
+		if ( empty( $logo_url ) ) {
+			return '';
+		}
+
+		$width_val  = ! empty( $upl_opts['settings']['fed_upl_website_logo_width'] ) ? intval( $upl_opts['settings']['fed_upl_website_logo_width'] ) : 0;
+		$height_val = ! empty( $upl_opts['settings']['fed_upl_website_logo_height'] ) ? intval( $upl_opts['settings']['fed_upl_website_logo_height'] ) : 0;
+
+		$max_width  = $width_val ? 'max-width: ' . $width_val . 'px;' : 'max-width: 220px;';
+		$max_height = $height_val ? 'max-height: ' . $height_val . 'px;' : 'max-height: 56px;';
+		$style      = esc_attr( $max_width . ' ' . $max_height );
+		$blog_name  = get_bloginfo( 'name' );
+		$home_url   = esc_url( home_url( '/' ) );
+
+		$wrapper_class = isset( $args['wrapper_class'] ) ? sanitize_text_field( $args['wrapper_class'] ) : 'fed-brand-logo-wrapper mb-6 flex justify-center text-center';
+
+		$html = sprintf(
+			'<div class="%s"><a href="%s" class="inline-block transition-transform duration-200 hover:opacity-90"><img src="%s" alt="%s" class="object-contain mx-auto" style="%s" /></a></div>',
+			esc_attr( $wrapper_class ),
+			$home_url,
+			esc_url( $logo_url ),
+			esc_attr( $blog_name ),
+			$style
+		);
+
+		return apply_filters( 'fed_brand_logo_html', $html, $logo_url, $context );
+	}
+}
+
+if ( ! function_exists( 'fed_get_field_width_class' ) ) {
+	/**
+	 * Convert field width setting into responsive Tailwind / CSS grid column span classes.
+	 *
+	 * @param array $field Field data array.
+	 * @return string CSS class string.
+	 */
+	function fed_get_field_width_class( $field ) {
+		$extended = isset( $field['extended'] ) ? ( is_string( $field['extended'] ) ? maybe_unserialize( $field['extended'] ) : $field['extended'] ) : array();
+		$width    = ( is_array( $extended ) && isset( $extended['field_width'] ) ) ? (string) $extended['field_width'] : '';
+
+		if ( empty( $width ) ) {
+			$type = isset( $field['input_type'] ) ? $field['input_type'] : '';
+			if ( in_array( $type, array( 'multi_line', 'textarea', 'wp_editor', 'table' ), true ) ) {
+				$width = '100';
+			} else {
+				$width = '50';
+			}
+		}
+
+		switch ( $width ) {
+			case '25':
+				return 'col-span-12 sm:col-span-6 md:col-span-3';
+			case '33':
+				return 'col-span-12 sm:col-span-6 md:col-span-4';
+			case '50':
+				return 'col-span-12 md:col-span-6';
+			case '100':
+			default:
+				return 'col-span-12';
+		}
+	}
+}
+
+if ( ! function_exists( 'fed_get_field_bootstrap_col_class' ) ) {
+	/**
+	 * Convert field width setting into Bootstrap grid column classes.
+	 *
+	 * @param array $field Field data array.
+	 * @return string CSS class string.
+	 */
+	function fed_get_field_bootstrap_col_class( $field ) {
+		$extended = isset( $field['extended'] ) ? ( is_string( $field['extended'] ) ? maybe_unserialize( $field['extended'] ) : $field['extended'] ) : array();
+		$width    = ( is_array( $extended ) && isset( $extended['field_width'] ) ) ? (string) $extended['field_width'] : '';
+
+		if ( empty( $width ) ) {
+			$type = isset( $field['input_type'] ) ? $field['input_type'] : '';
+			if ( in_array( $type, array( 'multi_line', 'textarea', 'wp_editor', 'table' ), true ) ) {
+				$width = '100';
+			} else {
+				$width = '50';
+			}
+		}
+
+		switch ( $width ) {
+			case '25':
+				return 'col-md-3 col-sm-6 col-xs-12';
+			case '33':
+				return 'col-md-4 col-sm-6 col-xs-12';
+			case '50':
+				return 'col-md-6 col-sm-12 col-xs-12';
+			case '100':
+			default:
+				return 'col-md-12';
+		}
+	}
+}
+
+if ( ! function_exists( 'fed_get_smart_tags_list' ) ) {
+	/**
+	 * Get categorized list of supported dynamic smart tags for builder UI and documentation.
+	 *
+	 * @return array Grouped smart tags list.
+	 */
+	function fed_get_smart_tags_list() {
+		$tags = array(
+			'user'     => array(
+				'title' => __( 'User Information', 'frontend-dashboard' ),
+				'tags'  => array(
+					'{current_user_name}'         => __( 'User Login / Username', 'frontend-dashboard' ),
+					'{current_user_email}'        => __( 'User Email Address', 'frontend-dashboard' ),
+					'{current_user_display_name}' => __( 'User Display Name', 'frontend-dashboard' ),
+					'{current_user_first_name}'   => __( 'User First Name', 'frontend-dashboard' ),
+					'{current_user_last_name}'    => __( 'User Last Name', 'frontend-dashboard' ),
+					'{current_user_id}'           => __( 'User ID', 'frontend-dashboard' ),
+					'{current_user_role}'         => __( 'Primary User Role Slug', 'frontend-dashboard' ),
+				),
+			),
+			'datetime' => array(
+				'title' => __( 'Date & Time', 'frontend-dashboard' ),
+				'tags'  => array(
+					'{current_date}'  => __( 'Current Date (WP Date Format)', 'frontend-dashboard' ),
+					'{current_time}'  => __( 'Current Time (WP Time Format)', 'frontend-dashboard' ),
+					'{current_year}'  => __( 'Current 4-digit Year (e.g. 2026)', 'frontend-dashboard' ),
+					'{current_month}' => __( 'Current Month Name (e.g. November)', 'frontend-dashboard' ),
+					'{current_day}'   => __( 'Current Day of Month (1-31)', 'frontend-dashboard' ),
+				),
+			),
+			'site'     => array(
+				'title' => __( 'Site & System', 'frontend-dashboard' ),
+				'tags'  => array(
+					'{site_title}'  => __( 'Site Title / Name', 'frontend-dashboard' ),
+					'{site_url}'    => __( 'Home Site URL', 'frontend-dashboard' ),
+					'{admin_email}' => __( 'Administrator Email', 'frontend-dashboard' ),
+				),
+			),
+			'post'     => array(
+				'title' => __( 'Post Context (Post Forms)', 'frontend-dashboard' ),
+				'tags'  => array(
+					'{post_id}'     => __( 'Current Post ID', 'frontend-dashboard' ),
+					'{post_title}'  => __( 'Current Post Title', 'frontend-dashboard' ),
+					'{post_type}'   => __( 'Post Type Slug', 'frontend-dashboard' ),
+					'{post_author}' => __( 'Author Display Name', 'frontend-dashboard' ),
+				),
+			),
+			'query'    => array(
+				'title' => __( 'URL Query Parameter', 'frontend-dashboard' ),
+				'tags'  => array(
+					'{query_param:key}' => __( 'URL Query Param (e.g. {query_param:ref} or {query_param:source})', 'frontend-dashboard' ),
+				),
+			),
+		);
+
+		return apply_filters( 'fed_smart_tags_list', $tags );
+	}
+}
+
+if ( ! function_exists( 'fed_resolve_smart_tags' ) ) {
+	/**
+	 * Parse and replace dynamic smart tags with contextual values.
+	 *
+	 * @param string $string Raw template string containing optional {tag} placeholders.
+	 * @param array  $context Optional metadata context.
+	 * @return string Processed string with all matching tags substituted.
+	 */
+	function fed_resolve_smart_tags( $string, array $context = array() ) {
+		if ( empty( $string ) || ! is_string( $string ) || strpos( $string, '{' ) === false ) {
+			return $string;
+		}
+
+		$current_user = wp_get_current_user();
+		$is_logged_in = ( $current_user && $current_user->exists() );
+
+		// User Replacements
+		$user_id           = $is_logged_in ? (string) $current_user->ID : '';
+		$user_login        = $is_logged_in ? $current_user->user_login : '';
+		$user_email        = $is_logged_in ? $current_user->user_email : '';
+		$user_first_name   = $is_logged_in ? $current_user->first_name : '';
+		$user_last_name    = $is_logged_in ? $current_user->last_name : '';
+		$user_display_name = $is_logged_in ? $current_user->display_name : '';
+		$user_role         = ( $is_logged_in && ! empty( $current_user->roles ) ) ? reset( $current_user->roles ) : '';
+
+		// Date & Time Replacements (respecting WordPress timezone settings)
+		$date_format   = get_option( 'date_format', 'Y-m-d' );
+		$time_format   = get_option( 'time_format', 'H:i' );
+		$current_date  = function_exists( 'wp_date' ) ? wp_date( $date_format ) : date_i18n( $date_format );
+		$current_time  = function_exists( 'wp_date' ) ? wp_date( $time_format ) : date_i18n( $time_format );
+		$current_year  = function_exists( 'wp_date' ) ? wp_date( 'Y' ) : date( 'Y' );
+		$current_month = function_exists( 'wp_date' ) ? wp_date( 'F' ) : date( 'F' );
+		$current_day   = function_exists( 'wp_date' ) ? wp_date( 'j' ) : date( 'j' );
+
+		// Site Replacements
+		$site_title  = get_bloginfo( 'name' );
+		$site_url    = home_url();
+		$admin_email = get_bloginfo( 'admin_email' );
+
+		// Post Context Replacements
+		global $post;
+		$target_post = isset( $context['post'] ) && $context['post'] instanceof \WP_Post ? $context['post'] : ( $post instanceof \WP_Post ? $post : null );
+		$post_id     = $target_post ? (string) $target_post->ID : '';
+		$post_title  = $target_post ? $target_post->post_title : '';
+		$post_type   = $target_post ? $target_post->post_type : '';
+		$post_author = '';
+		if ( $target_post && ! empty( $target_post->post_author ) ) {
+			$author_user = get_userdata( $target_post->post_author );
+			$post_author = $author_user ? $author_user->display_name : '';
+		}
+
+		$replacements = array(
+			'{current_user_id}'           => $user_id,
+			'{current_user_name}'         => $user_login,
+			'{current_user_login}'        => $user_login,
+			'{current_user_email}'        => $user_email,
+			'{current_user_first_name}'   => $user_first_name,
+			'{current_user_last_name}'    => $user_last_name,
+			'{current_user_display_name}' => $user_display_name,
+			'{current_user_role}'         => $user_role,
+			'{current_date}'              => $current_date,
+			'{current_time}'              => $current_time,
+			'{current_year}'              => $current_year,
+			'{current_month}'             => $current_month,
+			'{current_day}'               => $current_day,
+			'{site_title}'                => $site_title,
+			'{site_url}'                  => $site_url,
+			'{admin_email}'               => $admin_email,
+			'{post_id}'                   => $post_id,
+			'{post_title}'                => $post_title,
+			'{post_type}'                 => $post_type,
+			'{post_author}'               => $post_author,
+		);
+
+		// Allow developers to register custom tags
+		$replacements = apply_filters( 'fed_smart_tags_replacements', $replacements, $string, $context );
+
+		$resolved = str_replace( array_keys( $replacements ), array_values( $replacements ), $string );
+
+		// Dynamic Query Parameter Replacements: {query_param:key}
+		if ( strpos( $resolved, '{query_param:' ) !== false ) {
+			$resolved = preg_replace_callback(
+				'/\{query_param:([a-zA-Z0-9_\-]+)\}/',
+				function ( $matches ) {
+					$key = $matches[1];
+					if ( isset( $_GET[ $key ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+						return sanitize_text_field( wp_unslash( $_GET[ $key ] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+					}
+					return '';
+				},
+				$resolved
+			);
+		}
+
+		return apply_filters( 'fed_resolve_smart_tags', $resolved, $string, $context );
+	}
+}
+

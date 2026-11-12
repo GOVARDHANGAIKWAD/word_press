@@ -1,0 +1,200 @@
+<?php
+
+namespace FED\Controllers\Shortcode;
+
+use FED\Helpers\TemplateLoader;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Class ShortcodeController
+ *
+ * Handles shortcode registrations and page template redirects.
+ */
+class ShortcodeController {
+
+	/**
+	 * @var TemplateLoader
+	 */
+	protected $templates;
+
+	public function __construct( TemplateLoader $templates = null ) {
+		$this->templates = $templates ?: new TemplateLoader();
+	}
+
+	/**
+	 * Register shortcodes and hooks with HookLoader.
+	 *
+	 * @param \FED\Hooks\HookLoader $loader
+	 */
+	public function register_hooks( $loader ) {
+		// Register shortcodes directly
+		add_shortcode( 'fed_dashboard', array( $this, 'render_dashboard' ) );
+		add_shortcode( 'fed_login', array( $this, 'render_login' ) );
+		add_shortcode( 'fed_transactions', array( $this, 'render_transactions' ) );
+		add_shortcode( 'fed_user', array( $this, 'render_user_role' ) );
+		add_shortcode( 'fed_user_role', array( $this, 'render_user_role' ) );
+		add_shortcode( 'fed_author', array( $this, 'render_author' ) );
+
+		// Template redirect guards
+		$loader->add_action( 'template_redirect', $this, 'redirect_unauthenticated_dashboard' );
+		$loader->add_action( 'template_redirect', $this, 'redirect_authenticated_login' );
+
+		// Enable shortcodes in text widgets
+		add_filter( 'widget_text', 'do_shortcode' );
+
+		// Clean up wpautop rogue empty tags on pages containing Frontend Dashboard
+		add_filter( 'the_content', array( $this, 'clean_shortcode_autop' ), 999 );
+	}
+
+	/**
+	 * Strip rogue empty paragraphs and breaks injected by wpautop inside Frontend Dashboard containers.
+	 *
+	 * @param string $content Content.
+	 * @return string
+	 */
+	public function clean_shortcode_autop( $content ) {
+		if ( is_string( $content ) && false !== strpos( $content, 'fed_dashboard_container' ) ) {
+			// Strip empty paragraphs and paragraphs containing only whitespace or breaks.
+			$content = preg_replace( '/<p[^>]*>\s*(?:<br\s*\/?>)?\s*<\/p>/i', '', $content );
+
+			// Strip rogue <p> tags wrapping direct block children inside header or brand containers.
+			$content = preg_replace( '/(<header[^>]*class="[^"]*fed_mobile_header[^"]*"[^>]*>)\s*<p[^>]*>\s*<\/p>/i', '$1', $content );
+
+			// Strip unwanted <br> tags injected inside mobile nav buttons and SVG wrappers.
+			$content = preg_replace( '/(<button[^>]*class="[^"]*fed_mobile_nav_toggle[^"]*"[^>]*>)\s*<br\s*\/?>/i', '$1', $content );
+			$content = preg_replace( '/(<button[^>]*class="[^"]*fed_mobile_nav_close[^"]*"[^>]*>)\s*<br\s*\/?>/i', '$1', $content );
+			$content = preg_replace( '/<br\s*\/?>\s*(<\/button>)/i', '$1', $content );
+
+			// Strip unwanted <br> tags inside sidebar brand title and subtitle spans.
+			$content = preg_replace( '/(<span[^>]*class="[^"]*fed_sidebar_brand_[^"]*"[^>]*>)\s*<br\s*\/?>/i', '$1', $content );
+			$content = preg_replace( '/<br\s*\/?>\s*(<\/span>)/i', '$1', $content );
+
+			// Strip rogue <p> wrappers around the mobile close button.
+			$content = preg_replace( '/<p[^>]*>\s*(<!--.*?-->\s*)?(<button[^>]*class="[^"]*fed_mobile_nav_close[^"]*"[^>]*>.*?<\/button>)\s*<\/p>/is', '$2', $content );
+		}
+		return $content;
+	}
+
+	/**
+	 * Render [fed_dashboard] shortcode.
+	 *
+	 * @return string
+	 */
+	public function render_dashboard() {
+		ob_start();
+		$this->templates->get_template_part( 'dashboard' );
+		$html = ob_get_clean();
+
+		$cleaned = preg_replace( '/<p[^>]*>\s*(?:<br\s*\/?>)?\s*<\/p>/i', '', (string) $html );
+		return preg_replace( '/(<header[^>]*class="[^"]*fed_mobile_header[^"]*"[^>]*>)\s*<p[^>]*>\s*<\/p>/i', '$1', $cleaned );
+	}
+
+	/**
+	 * Render [fed_login] shortcode.
+	 *
+	 * @return string
+	 */
+	public function render_login() {
+		ob_start();
+		if ( is_user_logged_in() ) {
+			$this->templates->get_template_part( 'login/registered', 'user' );
+		} else {
+			$this->templates->get_template_part( 'login/unregistered', 'user' );
+		}
+		return ob_get_clean();
+	}
+
+	/**
+	 * Render [fed_transactions] shortcode.
+	 *
+	 * @return string
+	 */
+	public function render_transactions() {
+		ob_start();
+		$this->templates->get_template_part( 'payments/transactions' );
+		return ob_get_clean();
+	}
+
+	/**
+	 * Render [fed_user] shortcode.
+	 *
+	 * @param array $atts
+	 * @return string
+	 */
+	public function render_user_role( $atts ) {
+		$role = shortcode_atts(
+			array( 'role' => 'subscriber' ),
+			$atts,
+			'fed_user'
+		);
+
+		ob_start();
+		$this->templates->set_template_data( $role, 'fed_user_attr' );
+		$this->templates->get_template_part( 'user_role' );
+		return ob_get_clean();
+	}
+
+	/**
+	 * Render [fed_author] shortcode.
+	 *
+	 * @return string
+	 */
+	public function render_author() {
+		ob_start();
+		$this->templates->get_template_part( 'author' );
+		return ob_get_clean();
+	}
+
+	/**
+	 * Redirect unauthenticated users trying to access dashboard page.
+	 */
+	public function redirect_unauthenticated_dashboard() {
+		if ( ! is_user_logged_in() ) {
+			$location   = function_exists( 'fed_get_dashboard_url' ) ? fed_get_dashboard_url() : false;
+			$login_page = function_exists( 'fed_get_login_url' ) ? fed_get_login_url() : false;
+
+			if ( $location && get_permalink() === $location ) {
+				$redirect = ( false === $login_page ) ? esc_url( wp_login_url() ) : $login_page;
+				if ( $redirect && get_permalink() !== $redirect ) {
+					wp_safe_redirect( $redirect );
+					exit();
+				}
+			}
+		}
+	}
+
+	/**
+	 * Redirect logged-in users away from the login page.
+	 */
+	public function redirect_authenticated_login() {
+		if ( is_user_logged_in() ) {
+			$login_page = function_exists( 'fed_get_login_url' ) ? fed_get_login_url() : false;
+
+			if ( $login_page ) {
+				$url_to_post_id = function_exists( 'wpcom_vip_url_to_postid' )
+					? wpcom_vip_url_to_postid( $login_page )
+					: url_to_postid( $login_page );
+
+				if ( $url_to_post_id && is_page( $url_to_post_id ) ) {
+					$location = function_exists( 'fed_get_login_redirect_url' )
+						? fed_get_login_redirect_url()
+						: '';
+
+					if ( ! $location ) {
+						$location = function_exists( 'fed_get_dashboard_url' )
+							? fed_get_dashboard_url()
+							: home_url();
+					}
+
+					if ( $location && get_permalink() !== $location ) {
+						wp_safe_redirect( $location );
+						exit();
+					}
+				}
+			}
+		}
+	}
+}

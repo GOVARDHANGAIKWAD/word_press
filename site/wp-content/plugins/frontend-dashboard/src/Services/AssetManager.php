@@ -1,0 +1,162 @@
+<?php
+namespace FED\Services;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Class AssetManager
+ *
+ * Handles enqueueing Vite compiled CSS and JS assets in WordPress.
+ */
+class AssetManager {
+
+	private $version;
+	private $is_dev = false;
+
+	public function __construct( $version ) {
+		$this->version = $version;
+		// Detect if we are in local Vite dev mode
+		// We can use an environment variable or simply check if WP_ENVIRONMENT_TYPE is local
+		if ( defined( 'WP_ENVIRONMENT_TYPE' ) && 'local' === WP_ENVIRONMENT_TYPE ) {
+			// Alternatively, you can check if vite dev server is running on port 3000
+			$this->is_dev = false; // Set to true manually when running `npm run dev`
+		}
+
+		add_filter( 'script_loader_tag', array( $this, 'filter_script_loader_tag' ), 10, 3 );
+	}
+
+	/**
+	 * Ensure Vite bundles load with type="module" to prevent global namespace pollution
+	 */
+	public function filter_script_loader_tag( $tag, $handle, $src ) {
+		if ( 'fed-main' === $handle || 'fed-vite-client' === $handle ) {
+			if ( false === strpos( $tag, 'type="module"' ) && false === strpos( $tag, 'type=\'module\'' ) ) {
+				$tag = str_replace( '<script ', '<script type="module" ', $tag );
+			}
+		}
+		return $tag;
+	}
+
+	/**
+	 * Check whether the current admin screen belongs to Frontend Dashboard or its add-ons.
+	 *
+	 * @param string $hook_suffix Admin hook suffix.
+	 * @return bool
+	 */
+	public function is_fed_admin_screen( $hook_suffix = '' ) {
+		if ( ! is_admin() ) {
+			return false;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+
+		if ( ! empty( $page ) ) {
+			// Matches any Frontend Dashboard or Addon admin page.
+			if ( 0 === strpos( $page, 'fed_' ) || 0 === strpos( $page, 'fed-' ) || 0 === strpos( $page, 'frontend-dashboard' ) ) {
+				return true;
+			}
+		}
+
+		if ( function_exists( 'fed_get_script_loading_pages' ) ) {
+			$allowed = fed_get_script_loading_pages();
+			if ( ! empty( $page ) && in_array( $page, $allowed, true ) ) {
+				return true;
+			}
+			if ( ! empty( $hook_suffix ) && in_array( $hook_suffix, $allowed, true ) ) {
+				// Don't load full modern assets on generic WP core screens.
+				$core_screens = array( 'post.php', 'user-edit.php', 'post-new.php', 'profile.php', 'widgets.php' );
+				if ( ! in_array( $hook_suffix, $core_screens, true ) ) {
+					return true;
+				}
+			}
+		}
+
+		return (bool) apply_filters( 'frontend_dashboard_is_admin_screen', false, $hook_suffix, $page );
+	}
+
+	/**
+	 * Print early WP JS shims to prevent third-party/core script errors.
+	 */
+	public function print_early_shims() {
+		if ( is_admin() && ! $this->is_fed_admin_screen() ) {
+			return;
+		}
+
+		static $printed = false;
+		if ( $printed ) {
+			return;
+		}
+		$printed = true;
+		echo '<script id="fed-early-shims">window.wp=(typeof window.wp==="object"&&window.wp!==null)?window.wp:{};window.wp.editor=(typeof window.wp.editor==="object"&&window.wp.editor!==null)?window.wp.editor:{};window.wp.autop=window.wp.autop||{autop:function(t){return t;},removep:function(t){return t;}};window.wp.i18n=(typeof window.wp.i18n==="object"&&window.wp.i18n!==null)?window.wp.i18n:{__:function(t){return t;},_x:function(t){return t;},_n:function(s,p,n){return n===1?s:p;},_nx:function(s,p,n){return n===1?s:p;},isRtl:function(){return false;},setLocaleData:function(){},sprintf:function(t){return t;}};if(!window.wp.i18n.__){window.wp.i18n.__=function(t){return t;};}window.wp.hooks=window.wp.hooks||{addAction:function(){},addFilter:function(){},applyFilters:function(h,v){return v;},doAction:function(){},removeAction:function(){},removeFilter:function(){},hasAction:function(){return false;},hasFilter:function(){return false;}};</script>';
+	}
+
+	/**
+	 * Enqueue Frontend Dashboard modern scripts and styles.
+	 *
+	 * @param string $hook_suffix Admin hook suffix.
+	 */
+	public function enqueue_scripts( $hook_suffix = '' ) {
+		if ( is_admin() && ! $this->is_fed_admin_screen( $hook_suffix ) ) {
+			return;
+		}
+
+		$context            = is_admin() ? 'admin' : 'frontend';
+		$db_scripts         = get_option( 'fed_general_scripts_styles', array() );
+		$is_style_disabled  = isset( $db_scripts[ $context ]['styles']['fed-style'] );
+		$is_script_disabled = isset( $db_scripts[ $context ]['scripts']['fed-main'] );
+
+		$shims = 'window.wp=(typeof window.wp==="object"&&window.wp!==null)?window.wp:{};window.wp.editor=(typeof window.wp.editor==="object"&&window.wp.editor!==null)?window.wp.editor:{};window.wp.autop=window.wp.autop||{autop:function(t){return t;},removep:function(t){return t;}};window.wp.i18n=(typeof window.wp.i18n==="object"&&window.wp.i18n!==null)?window.wp.i18n:{__:function(t){return t;},_x:function(t){return t;},_n:function(s,p,n){return n===1?s:p;},_nx:function(s,p,n){return n===1?s:p;},isRtl:function(){return false;},setLocaleData:function(){},sprintf:function(t){return t;}};if(!window.wp.i18n.__){window.wp.i18n.__=function(t){return t;};}window.wp.hooks=window.wp.hooks||{addAction:function(){},addFilter:function(){},applyFilters:function(h,v){return v;},doAction:function(){},removeAction:function(){},removeFilter:function(){},hasAction:function(){return false;},hasFilter:function(){return false;}};';
+
+		wp_add_inline_script( 'jquery-core', $shims, 'before' );
+		wp_add_inline_script( 'jquery', $shims, 'before' );
+
+		wp_enqueue_script( 'wp-polyfill' );
+		wp_enqueue_script( 'wp-hooks' );
+		wp_enqueue_script( 'wp-i18n' );
+		wp_enqueue_script( 'wp-dom-ready' );
+		wp_enqueue_script( 'wp-a11y' );
+
+		$dependencies = array( 'jquery' );
+
+		if ( is_admin() ) {
+			if ( function_exists( 'wp_enqueue_media' ) ) {
+				wp_enqueue_media();
+			}
+		}
+
+		$translation_data = function_exists( 'fed_js_translation' ) ? fed_js_translation() : array();
+		$translation_data = apply_filters( 'fed_convert_php_js_var', $translation_data );
+
+		if ( $this->is_dev ) {
+			// Enqueue Vite client for HMR
+			if ( ! $is_script_disabled ) {
+				wp_enqueue_script( 'fed-vite-client', 'http://localhost:3000/@vite/client', array(), $this->version, true );
+				wp_enqueue_script( 'fed-main', 'http://localhost:3000/assets/js/main.js', $dependencies, $this->version, true );
+				wp_localize_script( 'fed-main', 'frontend_dashboard', $translation_data );
+			}
+			if ( ! $is_style_disabled ) {
+				wp_enqueue_style( 'fed-style', 'http://localhost:3000/assets/css/main.css', array(), $this->version );
+			}
+		} else {
+			// Production: read manifest.json
+			$manifest_path = BC_FED_PLUGIN_DIR . '/assets/dist/.vite/manifest.json';
+			if ( file_exists( $manifest_path ) ) {
+				$manifest = json_decode( file_get_contents( $manifest_path ), true );
+
+				if ( ! $is_script_disabled && isset( $manifest['assets/js/main.js'] ) ) {
+					$js_file = $manifest['assets/js/main.js']['file'];
+					wp_enqueue_script( 'fed-main', BC_FED_PLUGIN_URL . '/assets/dist/' . $js_file, $dependencies, $this->version, true );
+					wp_localize_script( 'fed-main', 'frontend_dashboard', $translation_data );
+				}
+
+				if ( ! $is_style_disabled && isset( $manifest['assets/css/main.css'] ) ) {
+					$css_file = $manifest['assets/css/main.css']['file'];
+					wp_enqueue_style( 'fed-style', BC_FED_PLUGIN_URL . '/assets/dist/' . $css_file, array(), $this->version );
+				}
+			}
+		}
+	}
+}
