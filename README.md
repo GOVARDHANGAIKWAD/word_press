@@ -89,10 +89,5 @@ word press/
 
 ---
 
-## How to Run Locally
 
-Double-click `start-server.bat` (or execute `start-server.ps1`). It will:
-1. Start the dedicated MySQL daemon on port 3307.
-2. Start the PHP web server on port 80.
-3. Automatically open your browser to the site!
 
